@@ -1,0 +1,23 @@
+[Unit]
+Description=RaceCam loopback GPS telemetry ingest
+After=network.target racecam-pairing.service
+Requires=racecam-pairing.service
+
+[Service]
+Type=simple
+User=racecam
+Group=racecam
+EnvironmentFile=/etc/racecam/receiver.env
+ExecStart=/usr/bin/python3 /opt/racecam/telemetry.py
+WorkingDirectory=/var/lib/racecam
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/racecam
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
