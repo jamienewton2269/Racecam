@@ -1,0 +1,23 @@
+[Unit]
+Description=RaceCam OBS loopback bridge (development)
+After=network.target racecam-status.service
+Wants=racecam-status.service
+
+[Service]
+Type=simple
+User=racecam
+Group=racecam
+Environment=RACECAM_OBS_PORT=8790
+Environment=RACECAM_POSITIONS_URL=http://127.0.0.1:8789/api/race/positions
+WorkingDirectory=/opt/racecam/obs
+ExecStart=/usr/bin/python3 /opt/racecam/obs/bridge.py
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
