@@ -1,0 +1,19 @@
+name: Receiver pairing security tests
+on:
+  push:
+    branches: [test/receiver-pairing-security-20261115]
+  pull_request:
+    paths:
+      - 'racecam-receiver/**'
+      - '.github/workflows/receiver-security-tests.yml'
+  workflow_dispatch:
+jobs:
+  pairing:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run isolated pairing tests
+        run: python3 -m unittest discover -s racecam-receiver -p 'test_pairing_security.py' -v
