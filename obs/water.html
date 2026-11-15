@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RaceCam – On-water Positions (OBS)</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#081b29;color:#f5fbff;font:16px system-ui,sans-serif}
+header{position:absolute;top:16px;left:20px;z-index:2;background:#081b29df;padding:12px 18px;border-radius:8px}
+h1{font-size:22px;margin:0 0 4px}#status{font-size:13px;color:#c4d5e2}
+canvas{width:100%;height:100%;display:block}
+footer{position:absolute;bottom:12px;left:20px;font-size:12px;color:#c4d5e2}
+</style></head><body>
+<header><h1>On-water yacht positions</h1><div id="status">Waiting for authenticated controller feed</div></header>
+<canvas id="plot"></canvas><footer>Schematic GNSS plot • Not for navigation • Stale fixes are marked</footer>
+<script>
+(function(){
+'use strict';
+var canvas=document.getElementById('plot'),ctx=canvas.getContext('2d'),status=document.getElementById('status'),data=null,lastFetch=0;
+var source='/obs/api/water'; // same-origin private OBS controller proxy; never call loopback receiver directly from remote browser
+function resize(){var d=window.devicePixelRatio||1;canvas.width=Math.round(innerWidth*d);canvas.height=Math.round(innerHeight*d);ctx.setTransform(d,0,0,d,0,0);draw();}
+function draw(){
+var w=innerWidth,h=innerHeight;ctx.fillStyle='#081b29';ctx.fillRect(0,0,w,h);
+ctx.strokeStyle='#244255';ctx.lineWidth=1;for(var x=0;x<w;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+for(var y=0;y<h;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+if(!data||!Array.isArray(data.positions)||!data.positions.length){ctx.fillStyle='#c4d5e2';ctx.font='20px system-ui';ctx.fillText('No yacht GNSS fixes received',Math.max(20,w/2-150),h/2);return;}
+var pts=data.positions.filter(function(p){return Number.isFinite(p.latitude)&&Number.isFinite(p.longitude)&&Math.abs(p.latitude)<=90&&Math.abs(p.longitude)<=180;});
+if(!pts.length)return;
+var minLat=Math.min.apply(null,pts.map(function(p){return p.latitude;})),maxLat=Math.max.apply(null,pts.map(function(p){return p.latitude;}));
+var minLon=Math.min.apply(null,pts.map(function(p){return p.longitude;})),maxLon=Math.max.apply(null,pts.map(function(p){return p.longitude;}));
+var centreLat=(minLat+maxLat)/2,scaleLon=Math.max(.05,Math.cos(centreLat*Math.PI/180));
+var latSpan=Math.max(.008,maxLat-minLat),lonSpan=Math.max(.008/scaleLon,maxLon-minLon);
+var pad=110,scale=Math.min((w-2*pad)/(lonSpan*scaleLon),(h-2*pad)/latSpan);
+var midLat=(minLat+maxLat)/2,midLon=(minLon+maxLon)/2,now=Date.now();
+pts.forEach(function(p){
+var px=w/2+(p.longitude-midLon)*scaleLon*scale,py=h/2-(p.latitude-midLat)*scale;
+var age=Math.max(0,now-p.fix_ms),stale=age>15000||p.accuracy_m>50;
+ctx.fillStyle=stale?'#e6a25b':'#55dfc5';ctx.strokeStyle='#fff';ctx.lineWidth=2;
+ctx.beginPath();ctx.arc(px,py,8,0,Math.PI*2);ctx.fill();ctx.stroke();
+ctx.fillStyle='#fff';ctx.font='14px system-ui';ctx.fillText(String(p.camera_id).slice(0,28)+(stale?' (STALE)':''),px+14,py-8);
+ctx.font='12px system-ui';ctx.fillStyle='#bcd3e0';ctx.fillText(Math.round(age/1000)+'s • ±'+Math.round(p.accuracy_m)+'m',px+14,py+10);
+});
+}
+function update(){fetch(source,{cache:'no-store',credentials:'same-origin'}).then(function(r){if(!r.ok)throw Error('HTTP '+r.status);return r.json();}).then(function(v){if(!v||!Array.isArray(v.positions))throw Error('Invalid feed');data=v;lastFetch=Date.now();status.textContent=v.positions.length+' yacht(s) • Controller connected';draw();}).catch(function(){status.textContent='Controller unavailable – positions may be old';draw();});}
+window.addEventListener('resize',resize);resize();update();setInterval(update,2000);setInterval(draw,1000);
+})();
+</script></body></html>
