@@ -1,0 +1,33 @@
+name: RaceCam offline verification
+on:
+  push:
+    paths:
+      - 'obs/**'
+      - 'racecam-receiver/**'
+      - '.github/workflows/racecam-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  receiver-and-obs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax checks
+        run: |
+          python3 -m compileall -q racecam-receiver obs
+      - name: OBS bridge contract tests
+        run: |
+          python3 obs/test_bridge.py
+      - name: Verify installer syntax
+        run: |
+          sh -n racecam-receiver/install-loopback.sh
+          sh -n obs/install-loopback.sh
+      - name: Check repository for committed credential files
+        run: |
+          if git ls-files | grep -E '(^|/)(receiver\.env|.*\.sqlite3?|.*\.pem|id_rsa|.*\.key)$'; then
+            echo 'Credential-like files are tracked' >&2
+            exit 1
+          fi
+          echo 'No credential-like files tracked'
