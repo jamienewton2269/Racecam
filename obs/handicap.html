@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RaceCam – Handicap-adjusted Race Positions</title>
+<style>
+html,body{margin:0;width:100%;height:100%;background:#081b29;color:#f5fbff;font:16px system-ui,sans-serif}
+main{padding:28px;max-width:1100px;margin:auto}h1{font-size:28px;margin:0 0 10px}#status{color:#b9d2e0;margin-bottom:24px}
+table{width:100%;border-collapse:collapse;background:#112b3a}th,td{padding:15px;text-align:left;border-bottom:1px solid #315164}th{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#a9c5d6}
+td:first-child{font-size:22px;font-weight:700} .muted{color:#adc5d4}.warning{color:#ffc47a}
+#empty{padding:40px;border:1px solid #315164;border-radius:8px;background:#112b3a}
+footer{font-size:12px;color:#9cb9c9;margin-top:20px}
+</style></head><body><main>
+<h1>Handicap-adjusted race positions</h1><div id="status">Waiting for approved RaceDay Manager race snapshot</div>
+<div id="empty">No approved handicap race data available. Physical GPS positions remain on the separate on-water display.</div>
+<table id="leaderboard" hidden><thead><tr><th>Position</th><th>Yacht</th><th>Corrected time</th><th>Race status</th></tr></thead><tbody id="rows"></tbody></table>
+<footer>Provisional standings only • RaceDay Manager remains authoritative • No estimated rankings without approved rules</footer>
+</main><script>
+(function(){
+'use strict';
+var status=document.getElementById('status'),empty=document.getElementById('empty'),table=document.getElementById('leaderboard'),rows=document.getElementById('rows');
+function safe(v){return String(v==null?'':v);}
+function showUnavailable(reason){status.textContent=reason;empty.hidden=false;table.hidden=true;rows.textContent='';}
+function render(data){
+ if(!data||data.approved!==true||!data.race_id||!data.handicap_method||!Array.isArray(data.standings)){
+  showUnavailable('Handicap data unavailable or not approved');return;
+ }
+ // The controller must supply precomputed standings. Never calculate handicap from GPS alone.
+ var seen={},valid=[];
+ data.standings.forEach(function(s){
+  if(!s||typeof s.yacht_name!=='string'||!s.yacht_name.trim()||!Number.isInteger(s.position)||s.position<1||
+     typeof s.corrected_seconds!=='number'||!Number.isFinite(s.corrected_seconds)||s.corrected_seconds<0)return;
+  var key=String(s.position);if(seen[key])return;seen[key]=true;valid.push(s);
+ });
+ if(!valid.length){showUnavailable('No validated provisional standings yet');return;}
+ valid.sort(function(a,b){return a.position-b.position;});
+ rows.textContent='';
+ valid.forEach(function(s){
+  var tr=document.createElement('tr');
+  var time=Math.round(s.corrected_seconds),minutes=Math.floor(time/60),seconds=time%60;
+  [String(s.position),safe(s.yacht_name).slice(0,80),minutes+':'+String(seconds).padStart(2,'0'),safe(s.status||'Provisional').slice(0,40)].forEach(function(value){
+   var td=document.createElement('td');td.textContent=value;tr.appendChild(td);
+  });rows.appendChild(tr);
+ });
+ status.textContent='Race '+safe(data.race_id).slice(0,64)+' • '+safe(data.handicap_method).slice(0,60)+' • Provisional';
+ empty.hidden=true;table.hidden=false;
+}
+function poll(){fetch('/obs/api/handicap',{credentials:'same-origin',cache:'no-store'}).then(function(r){if(!r.ok)throw Error('HTTP '+r.status);return r.json();}).then(render).catch(function(){showUnavailable('RaceDay Manager feed unavailable');});}
+poll();setInterval(poll,3000);
+})();
+</script></body></html>
