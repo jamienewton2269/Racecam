@@ -1,0 +1,27 @@
+name: RaceCam Android source compile
+on:
+  push:
+    paths:
+      - 'android/legacy-sage/**'
+      - '.github/workflows/racecam-android.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile legacy SAGE Java without changing camera code
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          test -f "$ANDROID_JAR"
+          mkdir -p /tmp/racecam-classes
+          javac -source 8 -target 8 -cp "$ANDROID_JAR" -d /tmp/racecam-classes android/legacy-sage/src/org/sailinguk/racecam/*.java
+      - name: Verify expected application entry points
+        run: |
+          grep -q 'class MainActivity' android/legacy-sage/src/org/sailinguk/racecam/MainActivity.java
+          grep -q 'class RaceCamMqttTelemetry' android/legacy-sage/src/org/sailinguk/racecam/RaceCamMqttTelemetry.java
