@@ -12,6 +12,7 @@ public final class RaceStartClock {
     private long uncertaintyMs=Long.MAX_VALUE;
     private long lastSyncElapsedMs;
     private long startElapsedMs=Long.MIN_VALUE;
+    private long startUtcMs=Long.MIN_VALUE;
     private long revision=-1;
     private String epoch="";
     private String commandId="";
@@ -28,6 +29,7 @@ public final class RaceStartClock {
         long candidateUncertainty=rtt/2+25;
         if(candidateUncertainty<uncertaintyMs || elapsed()-lastSyncElapsedMs>30000) {
             offsetMs=candidateOffset;
+            if(startUtcMs!=Long.MIN_VALUE && !fired)startElapsedMs=startUtcMs-offsetMs;
             uncertaintyMs=candidateUncertainty;
             lastSyncElapsedMs=responseReceivedElapsedMs;
         }
@@ -42,8 +44,8 @@ public final class RaceStartClock {
              "abandon".equals(action)||"recall".equals(action)))return false;
         epoch=raceEpoch;revision=newRevision;commandId=id;fired=false;
         abandoned="abandon".equals(action)||"recall".equals(action);
-        if(abandoned||"postpone".equals(action))startElapsedMs=Long.MIN_VALUE;
-        else startElapsedMs=startUtcMs-offsetMs;
+        if(abandoned||"postpone".equals(action)){this.startUtcMs=Long.MIN_VALUE;startElapsedMs=Long.MIN_VALUE;}
+        else {this.startUtcMs=startUtcMs;startElapsedMs=startUtcMs-offsetMs;}
         return true;
     }
     public synchronized long remainingMs(){
@@ -51,7 +53,7 @@ public final class RaceStartClock {
         return startElapsedMs-elapsed();
     }
     public synchronized boolean consumeGun(){
-        if(fired||abandoned||startElapsedMs==Long.MIN_VALUE||uncertaintyMs>2000)return false;
+        if(fired||abandoned||startElapsedMs==Long.MIN_VALUE||uncertaintyMs()>2000)return false;
         long late=elapsed()-startElapsedMs;
         if(late<0)return false;
         fired=true;
@@ -64,5 +66,5 @@ public final class RaceStartClock {
     public synchronized long revision(){return revision;}
     public synchronized String commandId(){return commandId;}
     public synchronized boolean isScheduled(){return startElapsedMs!=Long.MIN_VALUE;}
-    public synchronized void resetForNewRace(){revision=-1;epoch="";commandId="";startElapsedMs=Long.MIN_VALUE;fired=false;abandoned=false;}
+    public synchronized void resetForNewRace(){revision=-1;epoch="";commandId="";startElapsedMs=Long.MIN_VALUE;startUtcMs=Long.MIN_VALUE;fired=false;abandoned=false;}
 }
