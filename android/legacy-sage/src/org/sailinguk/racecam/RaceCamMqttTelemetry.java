@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.SSLParameters;
 
 /**
  * Independent GPS/MQTT 5 transport. No camera dependency.
@@ -30,6 +31,8 @@ public final class RaceCamMqttTelemetry implements LocationListener {
     private long sequence;
     private final String session = UUID.randomUUID().toString();
     private int packetId = 1;
+    private String pendingFix;
+    private boolean flushScheduled;
     private SSLSocket socket;
     private InputStream input;
     private OutputStream output;
@@ -64,7 +67,13 @@ public final class RaceCamMqttTelemetry implements LocationListener {
             ",\"longitude\":"+fix.getLongitude()+",\"accuracy_m\":"+fix.getAccuracy()+
             (fix.hasSpeed()?",\"sog_mps\":"+fix.getSpeed():"")+
             (fix.hasBearing()?",\"cog_deg\":"+fix.getBearing():"")+"}";
-        handler.post(()->publish(json));
+        handler.post(()->{pendingFix=json;if(!flushScheduled){flushScheduled=true;handler.post(this::flushLatest);}});
+    }
+    private void flushLatest() {
+        flushScheduled=false;
+        String next=pendingFix;pendingFix=null;
+        if(next!=null)publish(next);
+        if(pendingFix!=null && !flushScheduled){flushScheduled=true;handler.post(this::flushLatest);}
     }
     private static String jsonEscape(String s) {return s.replace("\\","\\\\").replace("\"","\\\"");}
     private void publish(String json) {
@@ -85,9 +94,10 @@ public final class RaceCamMqttTelemetry implements LocationListener {
     }
     private void connect() throws IOException {
         SSLSocket s=(SSLSocket)SSLSocketFactory.getDefault().createSocket(host,port);
+        SSLParameters params=s.getSSLParameters();params.setEndpointIdentificationAlgorithm("HTTPS");s.setSSLParameters(params);
         s.setSoTimeout(10000);s.startHandshake();socket=s;input=s.getInputStream();output=s.getOutputStream();
         ByteArrayOutputStream b=new ByteArrayOutputStream();
-        utf(b,"MQTT");b.write(5);b.write(0xC2);b.write(0);b.write(30);b.write(0); // MQTT5, user+pass, clean start, keepalive, props
+        utf(b,"MQTT");b.write(5);b.write(0xC2);b.write(0);b.write(0);b.write(0); // MQTT5, user+pass, clean start, keepalive disabled, props
         utf(b,"racecam-"+session.substring(0,8));utf(b,username);utf(b,password);
         packet(0x10,b.toByteArray());
         if(input.read()!=0x20)throw new IOException("Expected CONNACK");
