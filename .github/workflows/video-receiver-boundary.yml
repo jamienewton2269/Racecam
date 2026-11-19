@@ -1,0 +1,22 @@
+name: Video receiver boundary
+on:
+  push:
+    branches: [architecture/video-only-receiver-20261119]
+  pull_request:
+    paths:
+      - 'racecam-receiver/install-loopback.sh'
+      - 'racecam-receiver/test_video_only_installer.py'
+      - '.github/workflows/video-receiver-boundary.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce video-only installer
+        run: python3 -m unittest discover -s racecam-receiver -p 'test_video_only_installer.py' -v
+      - name: Check installer syntax
+        run: sh -n racecam-receiver/install-loopback.sh
