@@ -21,19 +21,24 @@ public final class RaceMqttCommands implements AutoCloseable {
         this.host=host;this.port=port;this.user=user;this.password=password;this.topic=topic;this.ackTopic=ackTopic;this.controller=controller;
     }
     public synchronized void start(){if(worker!=null)return;running=true;worker=new Thread(this::loop,"race-command-mqtt");worker.start();}
-    private void loop(){while(running){try{connect();while(running){int h=in.read();if(h<0)throw new EOFException();byte[] b=body();if((h>>4)==3)receive(h,b);else if((h>>4)==14)throw new IOException("Broker disconnected");}}catch(Exception e){disconnect();if(running)try{Thread.sleep(2000);}catch(InterruptedException ignored){}}}}
+    private void loop(){while(running){try{connect();while(running){int h;try{h=in.read();}catch(SocketTimeoutException idle){send(0xc0,new byte[0]);safelyAwaitPing();continue;}if(h<0)throw new EOFException();byte[] b=body();if((h>>4)==3)receive(h,b);else if((h>>4)==14)throw new IOException("Broker disconnected");}}catch(Exception e){disconnect();if(running)try{Thread.sleep(2000);}catch(InterruptedException ignored){}}}}
+    private void safelyAwaitPing()throws Exception{
+        socket.setSoTimeout(5000);
+        try{while(running){int h=in.read();if(h<0)throw new EOFException();byte[] b=body();if(h==0xd0&&b.length==0)return;if((h>>4)==3)receive(h,b);else if((h>>4)==14)throw new IOException("Broker disconnected");}}
+        finally{socket.setSoTimeout(1000);}
+    }
     private void connect()throws Exception{
         SSLSocket s=(SSLSocket)SSLSocketFactory.getDefault().createSocket();socket=s;
         s.connect(new InetSocketAddress(host,port),5000);s.setSoTimeout(10000);
         SSLParameters p=s.getSSLParameters();p.setEndpointIdentificationAlgorithm("HTTPS");s.setSSLParameters(p);s.startHandshake();
         in=s.getInputStream();out=s.getOutputStream();
-        ByteArrayOutputStream b=new ByteArrayOutputStream();utf(b,"MQTT");b.write(5);b.write(0xc2);b.write(0);b.write(0);b.write(0);
+        ByteArrayOutputStream b=new ByteArrayOutputStream();utf(b,"MQTT");b.write(5);b.write(0xc2);b.write(0);b.write(20);b.write(0);
         utf(b,"race-control-"+UUID.randomUUID());utf(b,user);utf(b,password);send(0x10,b.toByteArray());
         if(in.read()!=0x20)throw new IOException("CONNACK expected");byte[] a=body();if(a.length<3||a[1]!=0)throw new IOException("Connection rejected");
         b.reset();b.write(0);b.write(1);b.write(0);utf(b,topic);b.write(1);send(0x82,b.toByteArray());
         if(in.read()!=0x90)throw new IOException("SUBACK expected");a=body();ByteArrayInputStream q=new ByteArrayInputStream(a);
         if(q.read()!=0||q.read()!=1)throw new IOException("Wrong SUBACK");skip(q,var(q));int reason=q.read();if(reason<0||reason>1)throw new IOException("Subscription rejected");
-        s.setSoTimeout(0);
+        s.setSoTimeout(1000);
     }
     private void receive(int h,byte[] b)throws Exception{
         ByteArrayInputStream q=new ByteArrayInputStream(b);int hi=q.read(),lo=q.read();if(hi<0||lo<0)throw new EOFException();
