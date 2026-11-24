@@ -19,6 +19,7 @@ public final class RaceControlRuntime implements AutoCloseable {
         if(closed)return;
         long uncertainty=clock.uncertaintyMs();
         if(!clock.isClockReady()||uncertainty>2000)status.setText("Race timing: waiting for trusted clock");
+        else if(commands==null||!commands.isConnected())status.setText("Race timing: MQTT offline; start not confirmed");
         else if(!clock.isScheduled())status.setText("Race timing: synchronised; awaiting start");
         else {long remaining=clock.remainingMs();status.setText(remaining>0?
             "Race start in "+((remaining+999)/1000)+" s | uncertainty "+uncertainty+" ms":
