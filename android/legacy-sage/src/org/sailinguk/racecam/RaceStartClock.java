@@ -68,6 +68,7 @@ public final class RaceStartClock {
     }
     public synchronized long revision(){return revision;}
     public synchronized String commandId(){return commandId;}
+    public synchronized long trustedUtcMs(){if(!clockReady||uncertaintyMs()>2000)throw new IllegalStateException("Clock not trusted");return elapsed()+offsetMs;}
     public synchronized boolean isClockReady(){return clockReady;}
     public synchronized boolean isScheduled(){return startElapsedMs!=Long.MIN_VALUE;}
     public synchronized void resetForNewRace(){revision=-1;epoch="";commandId="";startElapsedMs=Long.MIN_VALUE;startUtcMs=Long.MIN_VALUE;fired=false;abandoned=false;}
