@@ -33,6 +33,9 @@ public class TestClock {
   SystemClock.now=42000;
   check(!c.consumeGun(),"suppress late event");
   check(!c.apply("other",5,"e","start",utc+60000),"reject wrong epoch");
+  c.resetForNewRace();
+  check(c.apply("other",1,"f","start",utc+60000),"explicit new race reset");
+  check(c.apply("other",2,"g","abandon",0)&&!c.isScheduled(),"abandon cancels schedule");
  }
 }
 EOF
