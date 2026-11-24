@@ -23,6 +23,7 @@ public final class RaceClockSync {
         connection.setConnectTimeout(3000);
         connection.setReadTimeout(3000);
         connection.setUseCaches(false);
+        connection.setInstanceFollowRedirects(false);
         connection.setRequestProperty("Accept","application/json");
         long sent=SystemClock.elapsedRealtime();
         try {
