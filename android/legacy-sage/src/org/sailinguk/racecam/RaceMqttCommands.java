@@ -13,6 +13,9 @@ public final class RaceMqttCommands implements AutoCloseable {
     private volatile boolean running;
     private volatile SSLSocket socket;
     private Thread worker;
+    private volatile boolean closed;
+    private volatile boolean connected;
+    public boolean isConnected(){return connected;}
     private InputStream in;
     private OutputStream out;
     private int nextId=2;
@@ -20,7 +23,7 @@ public final class RaceMqttCommands implements AutoCloseable {
         if(topic.isEmpty()||ackTopic.isEmpty()||topic.contains("+")||topic.contains("#")||ackTopic.contains("+")||ackTopic.contains("#"))throw new IllegalArgumentException("Exact topics required");
         this.host=host;this.port=port;this.user=user;this.password=password;this.topic=topic;this.ackTopic=ackTopic;this.controller=controller;
     }
-    public synchronized void start(){if(worker!=null)return;running=true;worker=new Thread(this::loop,"race-command-mqtt");worker.start();}
+    public synchronized void start(){if(closed||worker!=null)return;running=true;worker=new Thread(this::loop,"race-command-mqtt");worker.start();}
     private void loop(){while(running){try{connect();while(running){int h;try{h=in.read();}catch(SocketTimeoutException idle){send(0xc0,new byte[0]);safelyAwaitPing();continue;}if(h<0)throw new EOFException();byte[] b=body();if((h>>4)==3)receive(h,b);else if((h>>4)==14)throw new IOException("Broker disconnected");}}catch(Exception e){disconnect();if(running)try{Thread.sleep(2000);}catch(InterruptedException ignored){}}}}
     private void safelyAwaitPing()throws Exception{
         socket.setSoTimeout(5000);
@@ -38,7 +41,7 @@ public final class RaceMqttCommands implements AutoCloseable {
         b.reset();b.write(0);b.write(1);b.write(0);utf(b,topic);b.write(1);send(0x82,b.toByteArray());
         if(in.read()!=0x90)throw new IOException("SUBACK expected");a=body();ByteArrayInputStream q=new ByteArrayInputStream(a);
         if(q.read()!=0||q.read()!=1)throw new IOException("Wrong SUBACK");skip(q,var(q));int reason=q.read();if(reason<0||reason>1)throw new IOException("Subscription rejected");
-        s.setSoTimeout(1000);
+        s.setSoTimeout(1000);connected=true;
     }
     private void receive(int h,byte[] b)throws Exception{
         ByteArrayInputStream q=new ByteArrayInputStream(b);int hi=q.read(),lo=q.read();if(hi<0||lo<0)throw new EOFException();
@@ -58,6 +61,6 @@ public final class RaceMqttCommands implements AutoCloseable {
     private static void utf(OutputStream o,String s)throws IOException{byte[] b=s.getBytes(StandardCharsets.UTF_8);if(b.length>65535)throw new IOException("String too long");o.write(b.length>>8);o.write(b.length&255);o.write(b);}
     private static void read(InputStream i,byte[] b)throws IOException{for(int p=0;p<b.length;){int n=i.read(b,p,b.length-p);if(n<0)throw new EOFException();p+=n;}}
     private static void skip(InputStream i,int n)throws IOException{while(n-->0)if(i.read()<0)throw new EOFException();}
-    private void disconnect(){try{if(socket!=null)socket.close();}catch(IOException ignored){}}
-    public synchronized void close(){running=false;disconnect();if(worker!=null)worker.interrupt();}
+    private void disconnect(){connected=false;try{if(socket!=null)socket.close();}catch(IOException ignored){}}
+    public synchronized void close(){closed=true;running=false;disconnect();if(worker!=null)worker.interrupt();}
 }
