@@ -18,6 +18,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Race timing regression tests
+        run: sh android/legacy-sage/tests/test-clock.sh
       - name: Build legacy SAGE test APK
         shell: bash
         run: |
