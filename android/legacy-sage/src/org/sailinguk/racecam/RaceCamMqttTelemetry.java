@@ -36,21 +36,21 @@ public final class RaceCamMqttTelemetry implements LocationListener {
     private SSLSocket socket;
     private InputStream input;
     private OutputStream output;
-    private String host, username, password, topic, device;
+    private String host, username, password, topic, device, race;
     private int port;
 
     public RaceCamMqttTelemetry(Context context, Status status) {
         this.context=context.getApplicationContext(); this.status=status;
     }
     public void start(String brokerHost, int brokerPort, String user, String secret,
-                      String publishTopic, String deviceId) {
+                      String publishTopic, String deviceId, String raceId, String clubId) {
         if(active) return;
-        if(brokerHost==null || brokerHost.isEmpty() || brokerPort<1 || brokerPort>65535 ||
+        if(raceId==null || clubId==null || deviceId==null || !raceId.matches("[A-Za-z0-9_-]{1,128}") || !clubId.matches("[A-Za-z0-9_-]{1,128}") || !deviceId.matches("[A-Za-z0-9_-]{1,128}") || !("sailinguk/v1/clubs/"+clubId+"/races/"+raceId+"/devices/"+deviceId+"/events").equals(publishTopic) || brokerHost==null || brokerHost.isEmpty() || brokerPort<1 || brokerPort>65535 ||
            publishTopic==null || publishTopic.isEmpty() || deviceId==null || deviceId.isEmpty() ||
            user==null || secret==null || secret.isEmpty()) {
             status.onStatus("MQTT not paired"); return;
         }
-        host=brokerHost;port=brokerPort;username=user;password=secret;topic=publishTopic;device=deviceId;
+        host=brokerHost;port=brokerPort;username=user;password=secret;topic=publishTopic;device=deviceId;race=raceId;
         active=true;worker.start();handler=new Handler(worker.getLooper());
         locations=(LocationManager)context.getSystemService(Context.LOCATION_SERVICE);
         try {
@@ -62,7 +62,7 @@ public final class RaceCamMqttTelemetry implements LocationListener {
     @Override public void onLocationChanged(Location fix) {
         if(!active || fix==null || !fix.hasAccuracy()) return;
         final long seq=++sequence;
-        final String json="{\"schema\":1,\"device_id\":\""+jsonEscape(device)+"\",\"session_id\":\""+session+
+        final String json="{\"schema\":1,\"type\":\"position\",\"race_id\":\""+race+"\",\"device_id\":\""+jsonEscape(device)+"\",\"session_id\":\""+session+
             "\",\"sequence\":"+seq+",\"fix_ms\":"+fix.getTime()+",\"latitude\":"+fix.getLatitude()+
             ",\"longitude\":"+fix.getLongitude()+",\"accuracy_m\":"+fix.getAccuracy()+
             (fix.hasSpeed()?",\"sog_mps\":"+fix.getSpeed():"")+
