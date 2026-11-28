@@ -2,14 +2,11 @@ package org.sailinguk.racecam.security;
 
 import org.json.JSONObject;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
-import java.security.PublicKey;
-import java.security.Signature;
-import java.security.spec.X509EncodedKeySpec;
+import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
+import org.bouncycastle.crypto.signers.Ed25519Signer;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.Iterator;
 import java.util.Map;
@@ -22,9 +19,6 @@ import java.util.TreeMap;
  */
 public final class InvitationVerifier {
     private InvitationVerifier() {}
-    private static final byte[] ED25519_SPKI = {
-        0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00
-    };
     private static final String[] FIELDS = {
         "club_id", "course_revision", "event_id", "expires_utc",
         "invitation_id", "issued_utc", "issuer_key_id", "purpose",
@@ -45,14 +39,13 @@ public final class InvitationVerifier {
         String keyId = payload.getString("issuer_key_id");
         byte[] rawKey = trusted.lookup(keyId);
         if (rawKey == null || rawKey.length != 32) throw new SecurityException("Untrusted issuer");
-        byte[] encoded = Arrays.copyOf(ED25519_SPKI, ED25519_SPKI.length + 32);
-        System.arraycopy(rawKey, 0, encoded, ED25519_SPKI.length, 32);
-        PublicKey key = KeyFactory.getInstance("Ed25519").generatePublic(new X509EncodedKeySpec(encoded));
         byte[] signature = signatureBytes(envelope.getString("signature"));
-        Signature verifier = Signature.getInstance("Ed25519");
-        verifier.initVerify(key);
-        verifier.update(canonical(payload).getBytes(StandardCharsets.UTF_8));
-        if (!verifier.verify(signature)) throw new SecurityException("Invalid invitation signature");
+        byte[] message = canonical(payload).getBytes(StandardCharsets.UTF_8);
+        // Android 13 omits the standard Ed25519 KeyFactory; use the audited BC lightweight verifier.
+        Ed25519Signer verifier = new Ed25519Signer();
+        verifier.init(false, new Ed25519PublicKeyParameters(rawKey, 0));
+        verifier.blockUpdate(message, 0, message.length);
+        if (!verifier.verifySignature(signature)) throw new SecurityException("Invalid invitation signature");
         if (payload.length() != FIELDS.length) throw new SecurityException("Unsupported invitation fields");
         for (String field : FIELDS)
             if (!payload.has(field) || payload.isNull(field)) throw new SecurityException("Missing " + field);
