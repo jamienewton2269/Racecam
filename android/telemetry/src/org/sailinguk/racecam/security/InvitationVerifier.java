@@ -44,7 +44,7 @@ public final class InvitationVerifier {
         // Android 13 omits the standard Ed25519 KeyFactory; use the audited BC lightweight verifier.
         Ed25519Signer verifier = new Ed25519Signer();
         verifier.init(false, new Ed25519PublicKeyParameters(rawKey, 0));
-        verifier.blockUpdate(message, 0, message.length);
+        verifier.update(message, 0, message.length);
         if (!verifier.verifySignature(signature)) throw new SecurityException("Invalid invitation signature");
         if (payload.length() != FIELDS.length) throw new SecurityException("Unsupported invitation fields");
         for (String field : FIELDS)
