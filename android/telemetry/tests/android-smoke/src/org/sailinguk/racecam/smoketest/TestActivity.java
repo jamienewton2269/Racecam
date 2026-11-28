@@ -20,6 +20,10 @@ public final class TestActivity extends Activity {
         super.onCreate(state);
         try {
             JSONObject envelope = fixture();
+            java.lang.reflect.Method canonical = InvitationVerifier.class.getDeclaredMethod("canonical", JSONObject.class);
+            canonical.setAccessible(true);
+            String canonicalPayload = (String) canonical.invoke(null, envelope.getJSONObject("payload"));
+            Log.i("RaceInviteCanonical", canonicalPayload);
             JSONObject verified = InvitationVerifier.verify(envelope.toString(), id -> "test-only-issuer".equals(id) ?
                     Base64.getUrlDecoder().decode(PUB) : null, NOW);
             check("valid manager-format signature", "yacht-é".equals(verified.getString("yacht_id")));
