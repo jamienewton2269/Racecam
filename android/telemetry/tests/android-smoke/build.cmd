@@ -3,12 +3,13 @@ setlocal
 set "SDK=%LOCALAPPDATA%\Android\Sdk"
 set "BT=%SDK%\build-tools\35.0.0"
 set "JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot"
+if not exist bcprov-jdk18on-1.87.jar (echo Missing verified Bouncy Castle 1.87 dependency & exit /b 1)
 if not exist build mkdir build
 "%BT%\aapt.exe" package -f -M AndroidManifest.xml -I "%SDK%\platforms\android-35\android.jar" -F build\unsigned.apk
 if errorlevel 1 exit /b 1
-"%JAVA_HOME%\bin\javac.exe" -source 8 -target 8 -cp "%SDK%\platforms\android-35\android.jar" -d build src\org\sailinguk\racecam\security\InvitationVerifier.java src\org\sailinguk\racecam\smoketest\TestActivity.java
+"%JAVA_HOME%\bin\javac.exe" -source 8 -target 8 -cp "%SDK%\platforms\android-35\android.jar;bcprov-jdk18on-1.87.jar" -d build src\org\sailinguk\racecam\security\InvitationVerifier.java src\org\sailinguk\racecam\smoketest\TestActivity.java
 if errorlevel 1 exit /b 1
-call "%BT%\d8.bat" --lib "%SDK%\platforms\android-35\android.jar" --output build build\org\sailinguk\racecam\security\*.class build\org\sailinguk\racecam\smoketest\*.class
+call "%BT%\d8.bat" --lib "%SDK%\platforms\android-35\android.jar" --output build build\org\sailinguk\racecam\security\*.class build\org\sailinguk\racecam\smoketest\*.class bcprov-jdk18on-1.87.jar
 if errorlevel 1 exit /b 1
 copy /y build\classes.dex classes.dex >nul
 "%BT%\aapt.exe" add build\unsigned.apk classes.dex
