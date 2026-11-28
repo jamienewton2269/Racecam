@@ -26,7 +26,7 @@ public final class TestActivity extends Activity {
             Log.i("RaceInviteCanonical", canonicalPayload);
             JSONObject verified = InvitationVerifier.verify(envelope.toString(), id -> "test-only-issuer".equals(id) ?
                     Base64.getUrlDecoder().decode(PUB) : null, NOW);
-            check("valid manager-format signature", "yacht-é".equals(verified.getString("yacht_id")));
+            check("valid manager-format signature", "yacht-\u00e9".equals(verified.getString("yacht_id")));
             JSONObject tampered = new JSONObject(envelope.toString());
             tampered.getJSONObject("payload").put("yacht_id", "yacht-two");
             rejection("changed yacht", tampered, id -> Base64.getUrlDecoder().decode(PUB), NOW);
@@ -66,7 +66,7 @@ public final class TestActivity extends Activity {
         p.put("club_id", "BSC");
         p.put("event_id", "test-event");
         p.put("race_id", "test-race");
-        p.put("yacht_id", "yacht-é");
+        p.put("yacht_id", "yacht-\u00e9");
         p.put("issuer_key_id", "test-only-issuer");
         p.put("start_utc", "2026-12-01T10:00:00+00:00");
         p.put("expires_utc", "2026-12-31T10:00:00+00:00");
