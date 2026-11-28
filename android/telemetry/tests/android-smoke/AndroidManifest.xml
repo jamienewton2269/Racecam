@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+ package="org.sailinguk.racecam.invitesmoketest" android:versionCode="1" android:versionName="0.1">
+ <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35"/>
+ <application android:label="RaceDay Invitation Test" android:allowBackup="false" android:usesCleartextTraffic="false">
+ <activity android:name="org.sailinguk.racecam.smoketest.TestActivity" android:exported="true">
+ <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+ </activity></application></manifest>
