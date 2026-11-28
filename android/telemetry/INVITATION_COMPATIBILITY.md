@@ -22,4 +22,26 @@ The manager must publish schema revision, device identity and constraints, prima
 
 The current standalone A71 telemetry and camera APKs stay installed. No username/password compatibility mode will be added. Client MQTT authentication must ultimately be TLS-only with a non-exportable Android Keystore private key.
 
-**Runtime note:** `java.security.Signature.getInstance("Ed25519")` must be tested on the A71 Android version. If unavailable, integrate an audited provider before enabling QR imports; never skip signature verification.
+## Physical A71 regression test — 2026-11-28
+
+The Galaxy A71 (SM-A715F), running Android 13, lacks a usable platform `Ed25519` KeyFactory. The verifier therefore uses Bouncy Castle's lightweight Ed25519 API, pinned to `org.bouncycastle:bcprov-jdk18on:1.87`, rather than relying on the Android platform's removed/partial provider.
+
+Official dependency: https://central.sonatype.com/artifact/org.bouncycastle/bcprov-jdk18on/1.87
+
+Verified Maven Central SHA-256: `12d2d3dd82a9ec15e92ec7c7943ee64f6097c6dc12c07e984f1693b77565b9aa`.
+
+The **test-only** APK sources and manual build script are in `android/telemetry/tests/android-smoke`. On SAGE, download the pinned JAR from Maven Central and verify its hash before running `build.cmd`.
+
+On 2026-11-28 the independent test APK `org.sailinguk.racecam.invitesmoketest` compiled and installed on the physical A71. Android logcat reported:
+
+```
+PASS valid manager-format signature
+PASS changed yacht rejected
+PASS untrusted issuer rejected
+PASS expired invitation rejected
+PASS unsupported purpose rejected
+```
+
+The signature fixture was produced with Python `cryptography`, canonical payload sorted with `ensure_ascii=False`, and includes the Unicode yacht identifier `yacht-\u00e9`. Its public key is **test-only** and must never be used as a trusted production issuer. The fixture is not a genuine club signing key.
+
+This validates the **verification primitive** only. No QR scanning, production trust establishment, issuance ledger, Android Keystore enrollment, TLS client certificate, MQTT broker commissioning or background GPS was tested. Integration awaits the published manager-side extended provisioning schema and certificate enrollment API. Do not change or publish the existing telemetry/video APKs solely for this test.
